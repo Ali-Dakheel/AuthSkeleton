@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Frontend — Next.js 16 Auth
 
-## Getting Started
+Auth UI built with Next.js 16 App Router. Consumes the Laravel backend API.
 
-First, run the development server:
+## Stack
+
+- **Next.js 16.1** with Turbopack, React Compiler enabled
+- **React 19**, **TypeScript**, **Tailwind CSS v4**, **shadcn/ui**
+- **Zustand** — in-memory auth state
+- **TanStack Query v5** — server state (`/user/me`)
+- **React Hook Form v7 + Zod v4** — form validation
+
+## Setup
+
+```bash
+npm install
+cp .env.local.example .env.local
+```
+
+`.env.local`:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Pages
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Route | Description |
+|-------|-------------|
+| `/` | Redirects to `/dashboard` or `/login` |
+| `/login` | Email/password login + Google OAuth |
+| `/register` | Registration + Google OAuth |
+| `/verify-email` | "Check your email" screen (post-registration) |
+| `/verified` | Email verified confirmation |
+| `/forgot-password` | Request password reset email |
+| `/reset-password` | Set new password (via email link) |
+| `/auth/callback` | OAuth token handler (Google redirect lands here) |
+| `/dashboard` | Protected — requires auth |
 
-## Learn More
+## Architecture
 
-To learn more about Next.js, take a look at the following resources:
+### Token Storage
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Tokens from the backend are stored as **httpOnly cookies** — never in `localStorage`. The flow:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+Login → get token in JSON response
+     → POST /api/auth/set-token (Next.js Route Handler sets httpOnly cookie)
+     → Zustand setAuth() (in-memory, cleared on refresh)
+```
 
-## Deploy on Vercel
+On page load, the root Server Component reads the cookie and passes it to `AuthProvider`, which re-hydrates Zustand.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Route Protection
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`proxy.ts` (Next.js 16 middleware) is the single guard:
+- `/dashboard/*` without cookie → redirect to `/login`
+- `/login`, `/register` with cookie → redirect to `/dashboard`
+
+No auth checks inside individual pages or layouts.
+
+### Key Files
+
+```
+src/
+├── proxy.ts                     # Route guard (renamed from middleware.ts in Next.js 16)
+├── lib/
+│   ├── api/client.ts            # Fetch wrapper (Bearer token, typed errors)
+│   ├── api/auth.ts              # All Laravel API calls
+│   └── session.ts               # httpOnly cookie helpers (setTokenCookie, clearTokenCookie)
+├── store/auth.store.ts          # Zustand auth state
+├── hooks/
+│   ├── useCurrentUser.ts        # TanStack Query → GET /user/me
+│   └── useLogout.ts             # Logout: revoke token + clear cookie + clear cache
+└── providers/
+    ├── AuthProvider.tsx         # Hydrates Zustand from cookie on load
+    └── QueryProvider.tsx        # TanStack QueryClientProvider
+```
