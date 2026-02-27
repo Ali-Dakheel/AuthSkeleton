@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/store/auth.store'
+import { clearTokenCookie } from '@/lib/session'
 import { ApiError } from '@/types/auth'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL
@@ -15,6 +16,19 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
       ...options?.headers,
     },
   })
+
+  if (res.status === 401) {
+    useAuthStore.getState().clearAuth()
+    clearTokenCookie().catch(() => {})
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login?error=session_expired'
+    }
+    throw new ApiError('Session expired', 401, null)
+  }
+
+  if (res.status === 429) {
+    throw new ApiError('Too many requests. Please slow down.', 429, null)
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ message: 'Request failed', errors: null }))

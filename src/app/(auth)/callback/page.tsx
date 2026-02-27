@@ -8,7 +8,7 @@ import { useAuthStore } from '@/store/auth.store'
 function CallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { clearAuth } = useAuthStore()
+  const { setToken, clearAuth } = useAuthStore()
 
   useEffect(() => {
     const token = searchParams.get('token')
@@ -22,13 +22,14 @@ function CallbackContent() {
 
     setTokenCookie(token)
       .then(() => {
+        setToken(token) // Sync Zustand immediately so useCurrentUser fires on dashboard
         router.replace('/dashboard')
         router.refresh()
       })
       .catch(() => {
         router.replace('/login?error=oauth_failed')
       })
-  }, [searchParams, router, clearAuth])
+  }, [searchParams, router, setToken, clearAuth])
 
   return (
     <div className="min-h-screen flex items-center justify-center">

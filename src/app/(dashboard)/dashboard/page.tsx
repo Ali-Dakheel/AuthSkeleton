@@ -1,10 +1,10 @@
 'use client'
 
-import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { useVerifiedUser } from '@/hooks/useVerifiedUser'
 import { useLogout } from '@/hooks/useLogout'
 
 export default function DashboardPage() {
-  const { data } = useCurrentUser()
+  const { data } = useVerifiedUser()
   const logout = useLogout()
 
   const user = data?.data

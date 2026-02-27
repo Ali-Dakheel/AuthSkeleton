@@ -2,7 +2,7 @@
 
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 import Link from 'next/link'
 import { loginSchema, type LoginInput } from '@/lib/schemas/auth.schema'
@@ -13,8 +13,15 @@ import SocialAuthButton from './SocialAuthButton'
 
 export default function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { setAuth } = useAuthStore()
   const [error, setError] = useState<string | null>(null)
+
+  const queryError = searchParams.get('error')
+  const queryErrorMessage =
+    queryError === 'session_expired' ? 'Your session has expired. Please sign in again.' :
+    queryError === 'oauth_failed'    ? 'Google sign-in failed. Please try again.' :
+    null
 
   const {
     register,
@@ -45,6 +52,11 @@ export default function LoginForm() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {queryErrorMessage && (
+          <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+            {queryErrorMessage}
+          </div>
+        )}
         {error && (
           <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md">{error}</div>
         )}
